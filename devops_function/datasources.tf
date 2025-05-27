@@ -1,5 +1,5 @@
-# Copyright (c) 2020, 2021 Oracle and/or its affiliates. All rights reserved.
-# Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+## Copyright (c) 2021, Oracle and/or its affiliates.
+## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
 # 
 
 # Gets a list of Availability Domains
@@ -46,6 +46,11 @@ data "oci_identity_regions" "oci_regions" {
   }
 
 }
+
+data "oci_objectstorage_namespace" "os_namespace" {
+  compartment_id = var.tenancy_ocid
+}
+
 
 # Randoms
 resource "random_string" "deploy_id" {

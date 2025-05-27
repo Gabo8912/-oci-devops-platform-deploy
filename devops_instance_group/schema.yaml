@@ -1,5 +1,5 @@
-title: "Use OCI DevOps with Functions"
-description: "Create Function and DevOps Deploy service to manage your Functions deployments."
+title: "Use OCI DevOps with Instance Group"
+description: "Create DevOps Deploy Service to manage your Instance Group deployments."
 schemaVersion: 1.1.0
 version: "20190304"
 locale: "en"
@@ -23,48 +23,49 @@ variableGroups:
   - deploy_pipeline_deploy_pipeline_parameters_items_default_value
   - deploy_pipeline_deploy_pipeline_parameters_items_description
   - deploy_pipeline_deploy_pipeline_parameters_items_name
+  - create_dynamic_group_for_devops_pipln_in_compartment
   - compartment_ocid
   - release
 
 - title: Required Configuration
   visible: true  
   variables:
-  - app_name
-  - ocir_user_name
-  - ocir_user_password
+  - compartment_ocid
+  - availablity_domain_name
   - execute_deployment
   - show_advanced
 
 - title: DevOps Project
   visible: true  
   variables:
-  - compartment_id
   - project_description
-  - project_logging_config_is_archiving_enabled
-  - project_logging_config_display_name_prefix
   - project_logging_config_retention_period_in_days
 
-- title: Function & Network Configuration 
+- title: Network Configuration 
   visible: true  
   variables:
   - VCN-CIDR
-  - fnsubnet-CIDR
-  - ocir_repo_name
+  - Subnet-CIDR
 
 - title: DevOps Environments
   visible: 
       and:
         - show_advanced
   variables:
-  - environment_type 
+  - environment_type
+  - ssh_public_key
+  - instance_shape
+  - instance_ocpus
+  - instance_shape_config_memory_in_gbs
+  - instance_os
+  - linux_os_version 
 
 - title: DevOps Artifacts
   visible: 
       and:
         - show_advanced
   variables:
-  - deploy_artifact_source_type
-  - deploy_artifact_type
+  - filename
   - argument_substitution_mode
 
 - title: Pipelines & Stages
@@ -75,32 +76,17 @@ variableGroups:
   - deploy_stage_deploy_stage_type
   - deploy_stage_namespace
 
-- title: Policy Settings
-  description: Policy setting for the stack deployment
-  visible: true  
-  variables:
-  - create_dynamic_group_for_devops_pipln_in_compartment
-  - create_dynamic_group_for_nodes_in_compartment
-  - existent_dynamic_group_for_nodes_in_compartment
-  - create_compartment_policies
-  - create_tenancy_policies
     
-
 ######################
 # Variable Definitions
 ######################
 
 variables:
 
-  compartment_id: 
+  compartment_ocid: 
     type: oci:identity:compartment:id
     title: "Compartment"
     description: "The compartment in which to create resources"
-    required: true
-
-  app_name:
-    type: string
-    title: "HelloWorldFn"
     required: true
 
   show_advanced:
@@ -126,34 +112,13 @@ variables:
     pattern: "^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9]).(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9]).(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9]).(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\/(3[0-2]|[1-2]?[0-9])$"
     description: "VCN CIDR block where you want to create the App/Function resources."
   
-  fnsubnet-CIDR:
+  Subnet-CIDR:
     type: string
     required: false
     default: "10.0.1.0/24"
     pattern: "^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9]).(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9]).(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9]).(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\/(3[0-2]|[1-2]?[0-9])$"
     description: "Subnet CIDR block where you want to create the App/Function resources."
   
-  ocir_repo_name:
-    type: string
-    required: true
-    visibile: true
-    title: "OCIR repository name"
-    description: "Oracle Cloud Infrastructure Registry repository name (for example functions)"
-  
-  ocir_user_name:
-    type: string
-    required: true
-    visibile: true
-    title: "OCIR username"
-    description: "Oracle Cloud Infrastructure Registry username (your OCI username)" 
-
-  ocir_user_password:
-    type: password
-    required: true
-    visibile: true
-    title: "OCIR user password"
-    description: "Oracle Cloud Infrastructure Registry user password (your OCI user authtoken)" 
-
 
 ## DevOps
 
@@ -161,28 +126,8 @@ variables:
     type: string
     title: "Project description"
     description: "Choose DevOps Project description"
-    default: "DevOps Project for Function deployment"
+    default: "DevOps Project for Instance Group deployment"
     required: false    
-
-  project_logging_config_is_archiving_enabled:
-    type: boolean
-    title: "Archiving enabled for Project Logging"
-    description: "Archiving enabled for Project Logging"
-    default: false
-    required: true
-    visible: 
-      and:
-        - show_advanced
-
-  project_logging_config_display_name_prefix:
-    type: string
-    title: "Prefix for Logging Config"
-    description: "Prefix for Logging Config"
-    default: "fn-"
-    required: true
-    visible: 
-      and:
-        - show_advanced
 
   project_logging_config_retention_period_in_days:
     type: number
@@ -204,33 +149,110 @@ variables:
   environment_type:
     type: enum
     enum:
-      - "FUNCTION"
+      - "COMPUTE_INSTANCE_GROUP"
     title: "Environment Type"
-    description: "The type of environment to target. Stack currently supports only FUNCTION"
-    default: "FUNCTION"
+    description: "The type of environment to target. Stack currently supports only COMPUTE_INSTANCE_GROUP"
+    default: "COMPUTE_INSTANCE_GROUP"
     visible: 
       and:
         - show_advanced
 
+  availablity_domain_name:
+    type: oci:identity:availabilitydomain:name
+    required: true
+    visibile: true
+    title: "Availability Domain to be chosen"
+    description: "Availability Domain to be chosen"
+    dependsOn:
+      compartmentId: ${compartment_ocid}
+
+  ssh_public_key:
+    type: oci:core:ssh:publickey
+    title: "Public SSH Key"
+    description: "Choose public SSH Key to be uploaded into compute instances."
+    required: false
+
+  instance_shape:
+    type: oci:core:instanceshape:name
+    required: false
+    title: "Instance Shape"
+    description: "A shape is a template that determines the number of CPUs, amount of memory, and other resources allocated to a newly created instance."
+    default: "VM.Standard.E3.Flex"
+    dependsOn:
+      compartmentId: ${compartment_ocid}
+
+  instance_ocpus:
+    type: number
+    required: false
+    minimum: 1
+    maximum: 128
+    multipleOf: 1
+    default: 1
+    title: "Flex Shape OCPUs"
+    description: "Choose number of OCPUs for Flex Shape."
+    visible:
+      and:
+        - or:
+          - eq:
+            - instance_shape 
+            - "VM.Standard.E3.Flex"
+          - eq:
+            - instance_shape 
+            - "VM.Standard.E4.Flex"
+          - eq:
+            - instance_shape 
+            - "VM.Standard.A1.Flex"
+          - eq:
+            - instance_shape 
+            - "VM.Optimized3.Flex"
+
+  instance_shape_config_memory_in_gbs:
+    type: number
+    required: false
+    minimum: 1
+    maximum: 128
+    multipleOf: 1
+    default: 10
+    title: "Flex Shape Memory (GB)"
+    description: "Choose number GB for Flex Shape Memory."
+    visible:
+      and:
+        - or:
+          - eq:
+            - instance_shape 
+            - "VM.Standard.E3.Flex"
+          - eq:
+            - instance_shape 
+            - "VM.Standard.E4.Flex"
+          - eq:
+            - instance_shape 
+            - "VM.Standard.A1.Flex"
+          - eq:
+            - instance_shape 
+            - "VM.Optimized3.Flex"
+  
+  instance_os:
+    type: enum
+    required: false
+    title: "Instance OS"
+    description: "An Operating System that determines the operating system for the instance."
+    default: "Oracle Linux"
+    enum:
+      - "Oracle Linux"
+
+  linux_os_version:
+    type: enum
+    required: false
+    title: "Instance OS version"
+    description: "An Operating System version that determines the operating system version for the instance."
+    default: "8"
+    enum:
+      - "8"
+      - "7.9"
+
   ############
   # Artifacts
   ############
-  deploy_artifact_source_type:
-    type: enum
-    enum:
-      - "OCIR"
-    title: "Artifact Source Type"
-    description: "The source type of artifact. Stack currently supports only OCIR"
-    default: "OCIR"
-
-  deploy_artifact_type:
-    type: enum
-    enum:
-      - "DOCKER_IMAGE"
-    title: "Artifact Type"
-    description: "The type of Artifact. Stack currently supports only DOCKER_IMAGE"
-    default: "DOCKER_IMAGE"
-
   argument_substitution_mode:
     type: enum
     enum:
@@ -251,10 +273,10 @@ variables:
   deploy_stage_deploy_stage_type:
     type: enum
     enum:
-      - "DEPLOY_FUNCTION"
+      - "COMPUTE_INSTANCE_GROUP_ROLLING_DEPLOYMENT"
     title: "Stage Type"
     description: "DevOps Stage Type"
-    default: "DEPLOY_FUNCTION"
+    default: "COMPUTE_INSTANCE_GROUP_ROLLING_DEPLOYMENT"
 
   deploy_stage_namespace:
     type: string
@@ -262,43 +284,3 @@ variables:
     description: "namespace to use for deployment."
     default: "default"
   
-  create_dynamic_group_for_nodes_in_compartment:
-    type: boolean
-    title: "Create Dynamic Group for Worker Nodes in the Compartment"
-    required: true
-    visible:
-      and:
-        - show_advanced
-
-  existent_dynamic_group_for_nodes_in_compartment:
-    type: string
-    required: true
-    title: "Existent Dynamic Group"
-    visible:
-      and:
-        - and:
-          - show_advanced
-        - or:
-          - create_compartment_policies
-          - create_tenancy_policies
-        - not:
-          - create_dynamic_group_for_nodes_in_compartment
-        
-  create_compartment_policies:
-    type: boolean
-    title: "Create Compartment Policies"
-    required: true
-    visible:
-      and:
-        - show_advanced
-
-  create_tenancy_policies:
-    type: boolean
-    title: "Create Tenancy Policies"
-    required: true
-    visible:
-      and:
-        - show_advanced
-  
-  
- 

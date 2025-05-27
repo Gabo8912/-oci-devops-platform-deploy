@@ -1,4 +1,4 @@
-## Copyright (c) 2020, Oracle and/or its affiliates.
+## Copyright (c) 2021, Oracle and/or its affiliates.
 ## All rights reserved. The Universal Permissive License (UPL), Version 1.0 as shown at http://oss.oracle.com/licenses/upl
 
 terraform {
@@ -6,7 +6,7 @@ terraform {
   required_providers {
     oci = {
       source  = "hashicorp/oci"
-      version = "4.33.0"
+      version = "4.34.0"
     }
     tls = {
       source  = "hashicorp/tls"
