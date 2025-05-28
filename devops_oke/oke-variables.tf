@@ -6,11 +6,11 @@
 ## OKE Cluster Details
 
 variable "create_new_oke_cluster" {
-  default     = true
+  default     = false
   description = "Creates a new OKE cluster, node pool and network resources"
 }
 variable "existent_oke_cluster_id" {
-  default     = ""
+  default     = "ocid1.cluster.oc1.mx-queretaro-1.aaaaaaaag5x6gpj7meqiepib4ovlog6tjyql74a4wstsihzeoc7g2r53syra"
   description = "Using existent OKE Cluster. Only the application and services will be provisioned. If select cluster autoscaler feature, you need to get the node pool id and enter when required"
 }
 variable "create_new_compartment_for_oke" {
