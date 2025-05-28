@@ -2,23 +2,26 @@
   Updated oke.tf to use an existing cluster via data source instead of creating new one.
 */
 
-# Read existing OKE cluster
-data "oci_containerengine_cluster" "oke_cluster" {
+# Lee un clúster OKE existente
+data "oci_containerengine_cluster" "existing" {
   cluster_id = var.existent_oke_cluster_id
 }
 
-# Optionally create new cluster if needed (count = 0 here, as create_new_oke_cluster=false)
+# Opcional: crea un nuevo clúster solo si create_new_oke_cluster = true
 resource "oci_containerengine_cluster" "oke_cluster" {
-  count               = var.create_new_oke_cluster ? 1 : 0
-  compartment_id      = local.oke_compartment_id
-  kubernetes_version  = (var.k8s_version == "Latest") ? local.cluster_k8s_latest_version : var.k8s_version
-  name                = "${var.app_name} (${random_string.deploy_id.result})"
-  vcn_id              = oci_core_virtual_network.oke_vcn[0].id
+  count              = var.create_new_oke_cluster ? 1 : 0
+  compartment_id     = local.oke_compartment_id
+  kubernetes_version = (var.k8s_version == "Latest")
+    ? local.cluster_k8s_latest_version
+    : var.k8s_version
+  name    = "${var.app_name} (${random_string.deploy_id.result})"
+  vcn_id  = oci_core_virtual_network.oke_vcn[0].id
 
   endpoint_config {
-    is_public_ip_enabled = (var.cluster_endpoint_visibility == "Private") ? false : true
+    is_public_ip_enabled = var.cluster_endpoint_visibility == "Private" ? false : true
     subnet_id            = oci_core_subnet.oke_k8s_endpoint_subnet[0].id
   }
+
   options {
     service_lb_subnet_ids = [oci_core_subnet.oke_lb_subnet[0].id]
     add_ons {
@@ -33,18 +36,25 @@ resource "oci_containerengine_cluster" "oke_cluster" {
       pods_cidr     = lookup(var.network_cidrs, "PODS-CIDR")
     }
   }
-
-  count = var.create_new_oke_cluster ? 1 : 0
 }
 
+# Crea el node pool según si generas un clúster nuevo o usas el existente
 resource "oci_containerengine_node_pool" "oke_node_pool" {
-  # Use the data source ID if not creating new
-  cluster_id         = var.create_new_oke_cluster ? oci_containerengine_cluster.oke_cluster[0].id : data.oci_containerengine_cluster.oke_cluster.id
+  count = var.create_new_oke_cluster ? 1 : 0
+
+  cluster_id = var.create_new_oke_cluster
+    ? oci_containerengine_cluster.oke_cluster[0].id
+    : data.oci_containerengine_cluster.existing.id
+
   compartment_id     = local.oke_compartment_id
-  kubernetes_version = (var.k8s_version == "Latest") ? local.node_pool_k8s_latest_version : var.k8s_version
-  name               = var.node_pool_name
-  node_shape         = var.node_pool_shape
-  ssh_public_key     = var.generate_public_ssh_key ? tls_private_key.oke_worker_node_ssh_key.public_key_openssh : var.public_ssh_key
+  kubernetes_version = (var.k8s_version == "Latest")
+    ? local.node_pool_k8s_latest_version
+    : var.k8s_version
+  name           = var.node_pool_name
+  node_shape     = var.node_pool_shape
+  ssh_public_key = var.generate_public_ssh_key
+    ? tls_private_key.oke_worker_node_ssh_key.public_key_openssh
+    : var.public_ssh_key
 
   node_config_details {
     dynamic "placement_configs" {
@@ -75,6 +85,4 @@ resource "oci_containerengine_node_pool" "oke_node_pool" {
     key   = "name"
     value = var.node_pool_name
   }
-
-  count = var.create_new_oke_cluster ? 1 : 0
 }
